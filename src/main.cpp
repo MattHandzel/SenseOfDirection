@@ -12,12 +12,17 @@ private:
   int m_pin;
 
 public:
-  //Variable for current power in case we want to read that
+  // Variable for current power in case we want to read that
   float m_currentPower;
 
   // Sets the inputted pin to ouput and sets the position
   // of the motor to the inputted position
   VibrationMotor(int pin, float position) : m_position{position}, m_pin{pin}
+  {
+    pinMode(pin, OUTPUT);
+  }
+
+  VibrationMotor(int pin, float position, float arcLength) : m_pin{pin}, m_position{position}, m_arcLength{arcLength}
   {
     pinMode(pin, OUTPUT);
   }
@@ -37,7 +42,8 @@ public:
   }
 
   // Set the position (in case they want to change it later)
-  void setPosition(float position){
+  void setPosition(float position)
+  {
     this->m_position = position;
   }
 
@@ -45,45 +51,70 @@ public:
   // based on the angle given
   void setPowerBasedOnAngle(float angle)
   {
-    
+    // This function makes it so that angle
+    // stays between 0 and 2pi
+    while (angle > (PI + this->m_position))
+    {
+      angle -= PHI;
+    }
+    while (angle < (-PI + this->m_position))
+    {
+      angle += PHI;
+    }
+
+    float power = -square((angle - this->m_position) / (m_arcLength / 2)) + 1;
+
+    power = (power > 0) ? power : 0;
+    this->setPower(power);
   }
 };
 
-class Bracelet{
+class Bracelet
+{
   int m_nMotors = 4;
 
-  VibrationMotor m_motors[4];
+  VibrationMotor *m_motors[4];
 
-  int AVALIABLE_PINS[4] = {A0,A1,A2,A3};
+  int AVALIABLE_PINS[4] = {A0, A1, A2, A3};
 
-  void generateMotors(){
-    for(int i = 0; i < this->m_nMotors; i++){
-      this->m_motors[i] = VibrationMotor(this->AVALIABLE_PINS[i], PHI / m_nMotors * i);
+  float m_kARCLENGTH = PHI / 4;
+
+public:
+  Bracelet()
+  {
+  }
+
+  void generateMotors()
+  {
+    for (int i = 0; i < this->m_nMotors; i++)
+    {
+      this->m_motors[i] = new VibrationMotor(this->AVALIABLE_PINS[i], (PHI / m_nMotors) * i, this->m_kARCLENGTH);
     }
   }
 
-
+  void setAngle(float angle)
+  {
+    for (int i = 0; i < this->m_nMotors; i++)
+    {
+      this->m_motors[i]->setPowerBasedOnAngle(angle);
+    }
+  }
 };
 
-VibrationMotor motor0 = VibrationMotor(A0, 0);
-VibrationMotor motor1 = VibrationMotor(A1, PHI / 4);
-VibrationMotor motor2 = VibrationMotor(A2, PHI / 2);
-VibrationMotor motor3 = VibrationMotor(A3, 3 * PHI / 2);
+Bracelet b = Bracelet();
 
-void setup(){
+void setup()
+{
   Serial.begin(9600);
+  b.generateMotors();
+  pinMode(3, OUTPUT);
 }
-
 
 float currentAngle = 0;
 void loop()
 {
-
-  motor0.setPowerBasedOnAngle(currentAngle);
-  motor1.setPowerBasedOnAngle(currentAngle);
-  motor2.setPowerBasedOnAngle(currentAngle);
-  motor3.setPowerBasedOnAngle(currentAngle);
-
+  b.setAngle(currentAngle);
+  currentAngle += PI / 16;
   delay(100);
-  currentAngle += PI / 20;
+  Serial.println(currentAngle);
 }
