@@ -59,7 +59,7 @@ public:
         this->gyro[1] = this->gyro[1] + offsets[4];
         this->gyro[2] = this->gyro[2] + offsets[5];
 
-        // Add low pass filter
+        // Add a thresholf for lower ambplitude readings
         this->acc[0] = abs(this->acc[0]) > LOWER_THRESHOLD ? this->acc[0] : 0;
         this->acc[1] = abs(this->acc[1]) > LOWER_THRESHOLD ? this->acc[1] : 0;
         this->acc[2] = abs(this->acc[2]) > LOWER_THRESHOLD ? this->acc[2] : 0;
