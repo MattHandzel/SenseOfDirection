@@ -61,7 +61,8 @@ public:
             angle += TAU;
         }
 
-        float power = -square((angle - this->m_position) / (m_arcLength / 2)) + 1;
+        float power = ((angle - this->m_position) / (m_arcLength / 2));
+        power = -power * power + 1;
 
         power = (power > 0) ? power : 0;
         this->SetPower(power);

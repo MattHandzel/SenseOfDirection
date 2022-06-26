@@ -5,7 +5,7 @@
 
 #define TAU PI * 2
 
-Bracelet b = Bracelet();
+/*Bracelet b = Bracelet();
 
 MPU6050 mpu = MPU6050();
 
@@ -23,4 +23,4 @@ void loop()
   mpu.CleanReadings();
   b.SetAngle(TAU - (mpu.GetRotation() / 180 * PI));
   mpu.ToSerial();
-}
+}*/
