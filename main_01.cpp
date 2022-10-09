@@ -6,6 +6,8 @@
 #include "HMC5883L.h"
 #include "ITG3200.h"
 
+#include "HW579.h"
+
 HMC5883L mag;
 ITG3200 gyro;
 
@@ -54,14 +56,28 @@ void setup()
   delay(6);
 }
 
-int verbose = 0;
+int verbose = 1;
 const bool printAccel = false;
-const bool printGyro = false;
-const bool printMag = true;
+const bool printGyro = true;
+const bool printMag = false;
 const int maxDataCount = 100;
 int data[3][100];
 int printCounter = 0;
 int dataIndex = 0;
+
+float actual_gx = gx;
+float actual_gy = gy;
+float actual_gz = gz;
+
+void integrateGyro(){
+  static unsigned long endTime = millis();
+  unsigned long startTime = millis();
+  actual_gx += (float) gx * (startTime - endTime) / 1000;
+  actual_gy += (float) gy * (startTime - endTime) / 1000;
+  actual_gz += (float) gz * (startTime - endTime) / 1000;
+  endTime = millis();
+}
+
 void loop()
 {
   // read raw accel measurements from device
@@ -69,6 +85,7 @@ void loop()
   mag.getHeading(&mx, &my, &mz);
   gyro.getRotation(&gx, &gy, &gz);
 
+  integrateGyro();
 
   // Experimental data shows that mz is bigger than expected
   mz *= 0.63;
@@ -112,8 +129,15 @@ void loop()
       Serial.print(" ");
       Serial.print(gy);
       Serial.print(" ");
-      Serial.print(az);
+      Serial.print(gz);
       Serial.print(" ");
+      Serial.print(actual_gx);
+      Serial.print(" ");
+      Serial.print(actual_gy);
+      Serial.print(" ");
+      Serial.print(actual_gz);
+      Serial.print(" ");
+
       Serial.println();
     }
   }
