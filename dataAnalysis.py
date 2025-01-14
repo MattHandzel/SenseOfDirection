@@ -42,7 +42,6 @@ def clean_data(data):
   for i in range(len(data)):
     data = data[:, data[i] >= (np.mean(data[i]) - 2 * np.std(data[i]))]
     data = data[:, data[i] <= (np.mean(data[i]) + 2 * np.std(data[i]))]
-  
   print("x center:\t" + str((np.max(data[0]) + np.min(data[0])) / 2))
   print("y center:\t" + str((np.max(data[1]) + np.min(data[1])) / 2))
   print("z center:\t" + str((np.max(data[2]) + np.min(data[2])) / 2))
@@ -100,7 +99,7 @@ def clean_data_no_soft_iron(data):
   x_coefficient = (np.max(data[0]) - np.min(data[0])) / 2
   y_coefficient = (np.max(data[1]) - np.min(data[1])) / 2 
   z_coefficient = (np.max(data[2]) - np.min(data[2])) / 2
-  print(x_coefficient / 2, y_coefficient/ 2, z_coefficient / 2)
+  # print(x_coefficient / 2, y_coefficient/ 2, z_coefficient / 2)
   data[0] /= x_coefficient 
   data[1] /= y_coefficient 
   data[2] /= z_coefficient 
@@ -111,18 +110,17 @@ def find_approximation_function(data):
 
 fig = plt.figure()
 ax = plt.axes(projection='3d')
-data = pd.read_csv("./data/data_2022-10-08-01 ACCEL.csv")
+data = pd.read_csv("./data/data_2022-10-17-01 MAG.csv")
+print(data.head())
 cmap = "Greens"
 # for data in [pd.read_csv("./data/data_2022-09-20-00.csv"), pd.read_csv("./data/data_2022-09-20-01.csv")]:
-xData = data['data 0']
-yData = data['data 1']
-zData = data['data 2']
+xData = data['x0000']
+yData = data['x0001']
+zData = data['x0002']
 
 # Data cleaning
 
 # Remove outliers
-
-
 
 
 # plt.plot(np.arange(len(magnitudes)), magnitudes)
@@ -132,8 +130,8 @@ zData = data['data 2']
 (_xData, _yData, _zData) = clean_data((xData, yData, zData))
 ax.scatter3D(_xData, _yData, _zData, c=_zData, cmap="Reds")
 
-(_xData, _yData, _zData) = clean_data_no_soft_iron((xData, yData, zData))
-ax.scatter3D(_xData, _yData, _zData, c=_zData, cmap="Blues")
+# (_xData, _yData, _zData) = clean_data_no_soft_iron((xData, yData, zData))
+# ax.scatter3D(_xData, _yData, _zData, c=_zData, cmap="Blues")
 plt.show()
 
 

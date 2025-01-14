@@ -3,7 +3,7 @@
 class Chip
 {
 public:
-    Chip(int _address, int _verbose) : m_address{_address}, m_verbose(_verbose){};
+    Chip(int _address, int _verbose) : address{_address}, verbose(_verbose){};
 
     /**
      * @brief Writes the value into the register for a device with a certain addres
@@ -14,7 +14,7 @@ public:
      */
     void Write(int _reg, int _value)
     {
-        Wire.beginTransmission(m_address);
+        Wire.beginTransmission(address);
         Wire.write(_reg);
         Wire.write(_value);
         Wire.endTransmission();
@@ -23,12 +23,12 @@ public:
     byte *Read(int _regAddress, int num)
     {
         byte *data = new byte[num];
-        Wire.beginTransmission(m_address);
+        Wire.beginTransmission(address);
         Wire.write(_regAddress);
         Wire.endTransmission();
 
-        Wire.beginTransmission(m_address);
-        Wire.requestFrom(m_address, num);
+        Wire.beginTransmission(address);
+        Wire.requestFrom(address, num);
 
         int i = 0;
         while (Wire.available())
@@ -54,6 +54,8 @@ public:
     }
 
 protected:
-    int m_verbose;
-    int m_address;
+    int verbose;
+    int address;
+
+    bool error = false;
 };

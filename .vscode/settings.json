@@ -65,5 +65,7 @@
         "serstream": "cpp",
         "stack": "cpp",
         "string_iostream": "cpp"
-    }
+    },
+    "github.copilot.inlineSuggest.enable": true,
+    "cmake.sourceDirectory": "/home/matthandzel/Code/Arduino/SenseOfDirection/.pio/libdeps/xiao/MIDI Library/src"
 }

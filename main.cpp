@@ -1,24 +1,26 @@
 #include "Arduino.h"
 #include "Wire.h"
 
+#include "I2Cdev.h"
 #include "ADXL345.h"
 #include "HMC5883L.h"
-#include "I2Cdev.h"
 #include "ITG3200.h"
 
-#include "Bracelet.h"
 #include "HW579.h"
+#include "Bracelet.h"
+
 // When getting orientation ask yourself:
 // real life "{direction}" direction is chip "{direction}"
 // so in this case, real life x is chip negative y
-HW579 chip{{-2, -3, 1}};
+HW579 chip{{-2,-3,1}};
 
 Orientation orientation = {1, 2, 3};
 
 Bracelet bracelet{};
 
 uint16_t startTime = 0;
-void setup() {
+void setup()
+{
   pinMode(A6, OUTPUT);
   pinMode(A1, OUTPUT);
   pinMode(A0, OUTPUT);
@@ -26,21 +28,15 @@ void setup() {
   pinMode(A3, OUTPUT);
   bracelet.GenerateMotors();
   Serial.begin(115200);
-  while (!Serial)
-    ;
-  // chip.Initialize(0);
-  delay(100);
-  Serial.println("asd");
+  digitalWrite(A0, HIGH);
+  digitalWrite(A1, HIGH);
+  while(!Serial);
+  chip.Initialize(0);
+  delay(6);
   startTime = millis();
-
-  Serial.println("Performing test...");
-  Serial.println(chip.accel.testConnection());
-  Serial.println(chip.gyro.testConnection());
-  Serial.println(chip.mag.testConnection());
-
-  Serial.println("hi");
+  
   // chip.CalibrateMagnetometer();
-  // while(!chip.CalibrateGyro(2));
+  while(!chip.CalibrateGyro(2));
 }
 
 int verbose = 1;
@@ -54,28 +50,22 @@ int dataIndex = 0;
 
 uint64_t counter = 0;
 
-void loop() {
-  // chip.Update();
-  // chip.FindNorth();
-  // chip.PrintAccel();
-  // chip.PrintGyro();
-  // chip.PrintMag();
+void loop()
+{
+
+  chip.Update();
+  chip.FindNorth();
+
   // Randomass number to see if it has been updated yet
-  if (chip.angleOffOfNorth == -123456) {
-    bracelet.SetStatus(CALIBRATING);
-  } else {
-    bracelet.SetStatus(RUNNING);
+  if(chip.angleOffOfNorth == -123456){
+    
+  }
+  else{
     Serial.println("Current heading is" + String(chip.angleOffOfNorth));
-    bracelet.SetAngle(chip.angleOffOfNorth * DEG_TO_RAD);
   }
 
-  // analogWrite(A7, 255);
-  // analogWrite(A1, 255);
-  // analogWrite(A8, 255);
-  // analogWrite(A6, 255);
-  // analogWrite(A6, 255);
-
-  // bracelet.Update();
+  bracelet.SetAngle(chip.angleOffOfNorth * DEG_TO_RAD);
+  bracelet.Update();
 
   Serial.println("\t");
 

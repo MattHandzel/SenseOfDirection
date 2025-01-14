@@ -29,6 +29,7 @@ public:
     // Set what power to set the motor to
     void SetPower(float power)
     {
+        Serial.println("setting power of " + String(m_pin) + " to " + String(power));
         power = (power > 1) ? 1 : power;
         analogWrite(this->m_pin, round(power * 1024));
         this->m_currentPower = power;
@@ -62,22 +63,29 @@ public:
         }
 
         float power = ((angle - this->m_position) / (m_arcLength / 2));
-        power = -power * power + 1;
+        power = 1 - abs(power);
 
         power = (power > 0) ? power : 0;
+        Serial.println("I am " + String(m_pin) + " and I am setting my power to " + String(power));
         this->SetPower(power);
     }
 };
-
+enum BraceletStatuses{
+    CALIBRATING,
+    ERROR,
+    RUNNING
+}; 
 class Bracelet
 {
     int m_nMotors = 4;
 
     VibrationMotor *m_motors[4];
 
-    int AVALIABLE_PINS[4] = {A0, A1, A2, A3};
+    int AVALIABLE_PINS[4] = {A1, A2, A3, A6}; // A6 - East, A1 - N, A3 - West, A2 - South
 
-    float m_kARCLENGTH = TAU / 4;
+    float m_kARCLENGTH = TAU / 2;
+
+    BraceletStatuses status = CALIBRATING;
 
 public:
     Bracelet()
@@ -92,11 +100,43 @@ public:
         }
     }
 
+    // When the angle of the bracelet is set it will turn on all of the motors in the length
     void SetAngle(float angle)
     {
         for (int i = 0; i < this->m_nMotors; i++)
         {
             this->m_motors[i]->SetPowerBasedOnAngle(angle);
+        }
+    }
+
+    void SetStatus(BraceletStatuses s){
+        status = s;
+    }
+
+    void Update(){
+        if(status == CALIBRATING){
+            if((millis() % 2000) / 1000 == 0){
+                for(VibrationMotor *motor : this->m_motors){
+                    motor->SetPower(1);
+                }
+            }
+            else{
+                for(VibrationMotor *motor : this->m_motors){
+                    motor->SetPower(0);
+                }
+            }
+        }
+        else if(status == ERROR){
+            if((millis() % 500) / 250 == 0){
+                for(VibrationMotor *motor : this->m_motors){
+                    motor->SetPower(1);
+                }
+            }
+            else{
+                for(VibrationMotor *motor : this->m_motors){
+                    motor->SetPower(0);
+                }
+            }
         }
     }
 };

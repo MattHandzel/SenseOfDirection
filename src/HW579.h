@@ -9,6 +9,10 @@
 
 #define RADS_TO_DEGS 180 / PI
 
+// ----- TODOS ----
+// TODO: Check to see if higher sampling average for mag gives better results
+// TODO: Check to see how sampling rate for gyro effects results
+// TOOD: See how data output rate of magnetometer affects results 
 struct Orientation
 {
     uint8_t x;
@@ -69,7 +73,11 @@ public:
             Serial.println("Initializing HW579");
         }
         Wire.begin();
+
         accel.initialize();
+        
+        //? Why I am doing this
+        // I think this is arbitrary, I need to run the acceleromater straight up and then find off the actual offsets and put them here. This will allow me to do more cool stuff!
         accel.setOffsetX(-12/4); // Offset by 12
         accel.setOffsetY(-12/4); // Offset by 12
         accel.setOffsetZ(12/4); // Offset by 12
@@ -88,15 +96,26 @@ public:
             ACCEL_RAW_TO_G = 16 / 512.0;
             break;
         }
+
+        // Change rate of magnetometer 
         mag.initialize();  // intiailize magentormeter
         mag.setGain(HMC5883L_GAIN_1370);
         mag.setMode(HMC5883L_MODE_SINGLE);
+        mag.setDataRate(HMC5883L_RATE_75);
         // mag.setSampleAveraging
-        MAG_RAW_TO_GUASS = (0.88 / 2048.0);
+
+        MAG_REFRESH_RATE =  floor(1000 / 75) + 1; // 75 Hz
+        
+        MAG_RAW_TO_GUASS = (0.88 / 4096.0);
+
+
+        // Gyro can update at anywhere from 1 kHz to 5 hz
+        // https://www.sparkfun.com/datasheets/Sensors/Gyro/PS-ITG-3200-00-01.4.pdf 
 
         gyro.initialize(); // initialize gyroscope
         gyro.setRate(7);
         gyro.setDLPFBandwidth(ITG3200_DLPF_BW_5);
+        GYRO_REFRESH_RATE = 1000 / (1 + gyro.getRate());
         GYRO_RAW_TO_DEG_PER_SEC = 2000 / 32768.0;
         if (verbose > 0)
         {
@@ -104,7 +123,13 @@ public:
             Serial.println(mag.testConnection() ? "HMC5883L connection successful" : "HMC5883L connection failed");
             Serial.println(accel.testConnection() ? "ADXL345 connection successful" : "ADXL345 connection failed");
         }
-        delay(1000);
+
+        // Get some readings from the gyro sensor (for some reason the gyro likes to have wierd values initially)
+        int16_t gyroX = 0, gyroY = 0, gyroZ = 0; 
+        for(int i = 0; i < 1 * (1000 / GYRO_REFRESH_RATE); i++){
+            gyro.getRotation(&gyroX, &gyroY, &gyroZ);
+            delay(GYRO_REFRESH_RATE);
+        }
     }
 
     void Calibrate(int _totalCalibrationTime)
@@ -118,6 +143,154 @@ public:
         // Calibrate magnetometer (move it arround so that we can get the proper offset)
 
         // Write the calibration values to the gyro, accel, and magnetometer to EEPROM (or flash memeory)
+    }
+
+    void FindNorth(){
+        //TODO I can also find the minimum magnetic field and then set that to -180, ykyk
+        
+        static float maxMagField = -99999999999999999;
+        static float northOffset = 0;
+        static bool rotatedOnce = false;
+
+
+        if(magData[orientation.z] * magData[orientation.z] * sign(magData[orientation.z]) + magData[orientation.x] * magData[orientation.x] * sign(magData[orientation.x]) + magData[orientation.y] * magData[orientation.y] * sign(magData[orientation.y]) > maxMagField){
+            maxMagField = magData[orientation.z] * magData[orientation.z] * sign(magData[orientation.z]) + magData[orientation.x] * magData[orientation.x] * sign(magData[orientation.x]) + magData[orientation.y] * magData[orientation.y] * sign(magData[orientation.y]);
+            northOffset = gyroPsi;
+        }
+
+        if(gyroPsi > 360 || gyroPsi < -360){
+            rotatedOnce = true;
+        }
+        if(rotatedOnce){
+            angleOffOfNorth = fmod(-gyroPsi + northOffset - 180, 360);
+
+        }
+
+
+    }
+
+    bool CalibrateMagnetometer(float _calibrationTime){
+        // Calibrate a magnetometer by computing the maximum magnetic field that it senses for each axis and using that as an offset
+        // additionally, it uses the maximum magnetic field sensed to scale each axis and normalize them to one
+        int16_t magX, magY, magZ;
+        int16_t minX = 0, minY = 0, minZ = 0;
+        int16_t maxX = 0, maxY = 0, maxZ = 0;
+        int16_t xOff, yOff, zOff;
+        int16_t xScale, yScale, zScale;
+
+        int numSamples = _calibrationTime * (1000 / MAG_REFRESH_RATE);
+
+        // Get the maximum and minimum values for each axis
+        Serial.println("Calibrating magnetometer, move it around in a circle and make sure there are no strong magnetic fields present");
+        for (int i = 0; i < numSamples; i++)
+        {
+            mag.getHeading(&magX, &magY, &magZ);
+            if (magX < minX)
+                minX = magX;
+            if (magX > maxX)
+                maxX = magX;
+            if (magY < minY)
+                minY = magY;
+            if (magY > maxY)
+                maxY = magY;
+            if (magZ < minZ)
+                minZ = magZ;
+            if (magZ > maxZ)
+                maxZ = magZ;
+            delay(MAG_REFRESH_RATE);
+        }
+
+        // Compute the offset and scale for each axis
+        xOff = (maxX + minX) / 2;
+        yOff = (maxY + minY) / 2;
+        zOff = (maxZ + minZ) / 2;
+        xScale = (maxX - minX) / 2;
+        yScale = (maxY - minY) / 2;
+        zScale = (maxZ - minZ) / 2;
+
+        Serial.println("Magnetometer calibration complete");
+        Serial.println("X Offset: " + String(xOff));
+        Serial.println("Y Offset: " + String(yOff));
+        Serial.println("Z Offset: " + String(zOff));
+        Serial.println("X Scale: " + String(xScale));
+        Serial.println("Y Scale: " + String(yScale));
+        Serial.println("Z Scale: " + String(zScale));
+
+        magXOffset = xOff;
+        magYOffset = yOff;
+        magZOffset = zOff;
+        magXScale = xScale;
+        magYScale = yScale;
+        magZScale = zScale;
+
+    }
+
+    bool CalibrateGyro(float _calibrationTime = 10){
+        // Calibrate the gyro by taking the average of the readings over a period of time
+        // This will be used to offset the gyro readings
+        int16_t gyroX, gyroY, gyroZ;
+        int numSamples = _calibrationTime * (1000 / GYRO_REFRESH_RATE); // How many seconds we will take the samples for
+        Serial.println("Calibrating...");
+        bool notDone = true;
+        float gyroXSum = 0, gyroYSum = 0, gyroZSum = 0;
+        while(notDone){
+            float sumDeltaGyroX = 0, sumDeltaGyroY = 0, sumDeltaGyroZ = 0;
+            int16_t gyroXPrev = 0, gyroYPrev = 0, gyroZPrev = 0;
+            int32_t deltaGyroX = 0, deltaGyroY = 0, deltaGyroZ = 0;
+
+            for(int i = 0; i < numSamples; i++){
+
+                // Get the derivative of gyro as a function of samples, if the derivative changes quickly
+                // then cancel the calibration
+                if(i > 0){
+                    deltaGyroX = gyroXPrev - gyroX;
+                    deltaGyroY = gyroYPrev - gyroY;
+                    deltaGyroZ = gyroZPrev - gyroZ;
+                    sumDeltaGyroX += deltaGyroX;
+                    sumDeltaGyroY += deltaGyroY;
+                    sumDeltaGyroZ += deltaGyroZ;
+                    if(i > numSamples / 10){
+                        if(deltaGyroX >= 2 * (sumDeltaGyroX / i + 2)  || deltaGyroX <= -2 * (sumDeltaGyroX / i + 2)){
+                            Serial.println("Calibration failed, gyro moving too much around x axis (theta)" + String(deltaGyroX));
+                            return false;
+                        }
+                        if(deltaGyroY >= 2 * (sumDeltaGyroY / i + 2) || deltaGyroY <= -2 * (sumDeltaGyroY / i + 2)){
+                            Serial.println("Calibration failed, gyro moving too much around y axis (phi)" + String(deltaGyroY));
+                            return false;
+                        }
+                        if(deltaGyroZ >= 2 * (sumDeltaGyroZ / i + 2) || deltaGyroZ <= -2 * (sumDeltaGyroZ / i + 2)){
+                            Serial.println("Calibration failed, gyro moving too much around z axis (psi)" + String(deltaGyroZ));
+                            return false;
+                        }
+                    }
+                }
+                gyroXPrev = gyroX;
+                gyroYPrev = gyroY;
+                gyroZPrev = gyroZ;
+
+                gyro.getRotation(&gyroX, &gyroY, &gyroZ);
+                gyroXSum += gyroX;
+                gyroYSum += gyroY;
+                gyroZSum += gyroZ;
+
+                if(i == numSamples - 1){
+                    notDone = false;
+                    Serial.println("Calibration successful");
+                }
+                delay(GYRO_REFRESH_RATE);
+            }
+
+        }
+
+        gyroXOffset = gyroXSum / numSamples;
+        gyroYOffset = gyroYSum / numSamples;
+        gyroZOffset = gyroZSum / numSamples;
+
+
+        Serial.println("gyroXOffset =" + String(gyroXSum / numSamples));
+        Serial.println("gyroYOffset =" + String(gyroYSum / numSamples));
+        Serial.println("gyroZOffset =" + String(gyroZSum / numSamples));
+        return true;
     }
 
     // This is the final function we want, we just want our current x, y, and z rotation
@@ -150,7 +323,6 @@ public:
 
         return 0;
         // float yaw = atan(accelData[orientation.z] / sqrt(pow(accelData[orientation.x], 2) + pow(accelData[orientation.y], 2))) * RADS_TO_DEGS;
-// 
         // Serial.println(String(atan(magData[abs(orientation.y)] / magData[abs(orientation.x)]) * RADS_TO_DEGS) + "\t" + \
         //                String(atan(magData[abs(orientation.z)] / magData[abs(orientation.y)]) * RADS_TO_DEGS) + "\t");
         // Serial.println(String(atan(magData[abs(orientation.y)] / magData[abs(orientation.x)]) * RADS_TO_DEGS) + "\t" + \
@@ -170,6 +342,7 @@ public:
 
     void Update()
     {
+        // Todo make gyro more accurate when going FAST
         currentTime = millis();
         float deltaTime = ((float)(currentTime - previousTime));
         // if (deltaTime <= updateIntervalMS)
@@ -185,38 +358,36 @@ public:
 
         // Average filter for accelerometer, gyro, and mag (reduces noise)
 
-        // offsets for mag
-        mx += -5;
-        my += -62;
-        mz += 47;
-
         // offsets for gyro
 
-
-        gx += 25;
-        gy += -54;
-        gz += 9;
+        // gx += 25;
+        // gy += -54;
+        // gz += 9;
 
         // Convert data into actual numbers
         // Accel -
         // Gyro - Range is +- 2g | 
         // Mag - Range is +- 8 guass = +-4096 | so one raw is equal to (8 / 4096.0) guass
-        magData[0] = mx * MAG_RAW_TO_GUASS;
-        magData[1] = my * MAG_RAW_TO_GUASS;
-        magData[2] = mz * MAG_RAW_TO_GUASS;
+
+        magData[0] = (mx * MAG_RAW_TO_GUASS - magXOffset * MAG_RAW_TO_GUASS) / (magXScale * MAG_RAW_TO_GUASS);
+        magData[1] = (my * MAG_RAW_TO_GUASS - magYOffset * MAG_RAW_TO_GUASS) / (magYScale * MAG_RAW_TO_GUASS);
+        magData[2] = (mz * MAG_RAW_TO_GUASS - magZOffset * MAG_RAW_TO_GUASS) / (magZScale * MAG_RAW_TO_GUASS);
+
+        // adding the magnetic mapping (from calibration)
+        // magData[orientation.x] = magData[orientation.x] * 1.009 + magData[orientation.y] * -0.010 + magData[orientation.z] * 0.026;
+        // magData[orientation.y] = magData[orientation.x] * -0.010 + magData[orientation.y] * 1.025 + magData[orientation.z] * 0.114;
+        // magData[orientation.z] = magData[orientation.x] * 0.026 + magData[orientation.y] * 0.114 - magData[orientation.z] * 0.981;
 
         accelData[0] = ax * ACCEL_RAW_TO_G;
         accelData[1] = ay * ACCEL_RAW_TO_G;; 
         accelData[2] = az * ACCEL_RAW_TO_G;
 
-        gyroData[0] = gx * GYRO_RAW_TO_DEG_PER_SEC;
-        gyroData[1] = gy * GYRO_RAW_TO_DEG_PER_SEC;
-        gyroData[2] = gz * GYRO_RAW_TO_DEG_PER_SEC;
+        gyroData[0] = gx * GYRO_RAW_TO_DEG_PER_SEC - gyroXOffset * GYRO_RAW_TO_DEG_PER_SEC;
+        gyroData[1] = gy * GYRO_RAW_TO_DEG_PER_SEC - gyroYOffset * GYRO_RAW_TO_DEG_PER_SEC;
+        gyroData[2] = gz * GYRO_RAW_TO_DEG_PER_SEC - gyroZOffset * GYRO_RAW_TO_DEG_PER_SEC;
 
         // offsets
-        // gyroData[0] -= -1.54377548601399;
-        // gyroData[1] -= 3.29122583916084;
-        // gyroData[2] += 0.54718191958042;
+
         // Swap axis around:
         magData[orientation.x] *= orientation.xSign;
         magData[orientation.y] *= orientation.ySign;
@@ -230,17 +401,11 @@ public:
         gyroData[orientation.y] *= orientation.ySign;
         gyroData[orientation.z] *= orientation.zSign;
 
-        // gyro: -160.9132080078 26.5391845703 -74.7651977539 time:46526
-        // gyroData[orientation.x] += 160.9132080078 / (46526 / 1000);
-        // gyroData[orientation.y] += -26.5391845703 / (46526 / 1000);
-        // gyroData[orientation.z] += 74.7651977539 / (46526 / 1000);
-        
         // Median filter?
+        
+        // Print mag values before rotation vector
 
         // Rotate
-
-        // RotateVector3D(&magData[orientation.x], &magData[orientation.y], &magData[orientation.z], theta, phi, psi);
-
         if(previousTime == -1) // This makes it so that we ignore the first few attempts
         {
             previousTime = currentTime;
@@ -253,25 +418,31 @@ public:
         if(accelData[orientation.z] < 0){
             accelTheta = PI - accelTheta;
         }
-        //  * RADS_TO_DEGS;
+
         accelPhi = atan(accelData[orientation.y] / sqrt(pow(accelData[orientation.z], 2) + pow(accelData[orientation.x], 2)));
         // This makes is so that instead of the domain being [-90, 90], we increase it to [-90, 270]
         if(accelData[orientation.z] < 0){
             accelPhi = PI - accelPhi;
         }
+
+        magPsi = atan((magData[orientation.y] / magData[orientation.x] ));
+        if(magData[orientation.y] > 0){
+            magPsi = PI - magPsi;
+        }
         
         accelTheta *= RADS_TO_DEGS;
         accelPhi *= RADS_TO_DEGS;
+        magPsi *= RADS_TO_DEGS;
 
         gyroTheta += gyroData[orientation.x] * deltaTime;
         gyroPhi += gyroData[orientation.y] * deltaTime;
         gyroPsi += gyroData[orientation.z] * deltaTime;
         
-        float alpha = 0.05;
+        float alpha = 0.5;
         
         theta = (theta + (gyroData[orientation.x] * deltaTime)) * (1- alpha) + accelTheta * alpha;
         phi = (phi + (gyroData[orientation.y] * deltaTime)) * (1- alpha) + accelPhi * alpha;
-
+        psi = (psi + (gyroData[orientation.z] * deltaTime)) * (1- alpha) + magPsi * alpha;
 
         previousTime = currentTime;
         // If this is the first time we have updated the sensor values then skip the rest of this function
@@ -317,10 +488,7 @@ public:
         Serial.print(" ");
         Serial.print(magData[orientation.y]);
         Serial.print(" ");
-        Serial.print(magData[orientation.z]);
-        Serial.print(" ");
-        Serial.println(sqrt(magData[0] * magData[0] + magData[1] * magData[1] + magData[2] * magData[2]));
-        Serial.println();
+        Serial.println(magData[orientation.z]);
     }
 
     void PrintAccel()
@@ -372,7 +540,21 @@ public:
     u_int16_t previousTime = 0;
 
     Orientation orientation;
-protected:
+
+    float GYRO_REFRESH_RATE;
+
+    float gyroXOffset = -24.53;
+    float gyroYOffset = 53;
+    float gyroZOffset = -8.06;
+
+    float magXOffset = 0.11;
+    float magYOffset = -35.88;
+    float magZOffset = -72.29;
+
+    float magXScale = 1;
+    float magYScale = 1;
+    float magZScale = 1;
+
     int16_t mx, my, mz;
     int16_t gx, gy, gz;
     int16_t ax, ay, az;
@@ -381,8 +563,15 @@ protected:
     float GYRO_RAW_TO_DEG_PER_SEC;
     float MAG_RAW_TO_GUASS;
 
+    float MAG_REFRESH_RATE;
+
+    int16_t currentRotation;
+    int16_t previousRotation;
+
+    float angleOffOfNorth = -123456;
 
 
+protected:
 
     // class default I2C address is 0x53
     // specific I2C addresses may be passed as a parameter here
