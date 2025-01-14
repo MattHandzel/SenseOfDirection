@@ -17,7 +17,7 @@ import numpy as np
 
 
 #   print(data.shape)
-  
+
 #   magnitudes = np.sqrt(data[0] ** 2 + data[1] ** 2 + data[2] ** 2)
 
 #   # Divide all of the data by the average of the magnitude
@@ -30,93 +30,96 @@ import numpy as np
 
 #   return data
 
+
 def clean_data(data):
 
-  data = np.array(data, dtype=np.float64)
+    data = np.array(data, dtype=np.float64)
 
-  # Get the magnitude of the largest data point
+    # Get the magnitude of the largest data point
 
-  print(data.shape)
+    print(data.shape)
 
-  # Get rid of outliers for each data type
-  for i in range(len(data)):
-    data = data[:, data[i] >= (np.mean(data[i]) - 2 * np.std(data[i]))]
-    data = data[:, data[i] <= (np.mean(data[i]) + 2 * np.std(data[i]))]
-  print("x center:\t" + str((np.max(data[0]) + np.min(data[0])) / 2))
-  print("y center:\t" + str((np.max(data[1]) + np.min(data[1])) / 2))
-  print("z center:\t" + str((np.max(data[2]) + np.min(data[2])) / 2))
+    # Get rid of outliers for each data type
+    for i in range(len(data)):
+        data = data[:, data[i] >= (np.mean(data[i]) - 2 * np.std(data[i]))]
+        data = data[:, data[i] <= (np.mean(data[i]) + 2 * np.std(data[i]))]
+    print("x center:\t" + str((np.max(data[0]) + np.min(data[0])) / 2))
+    print("y center:\t" + str((np.max(data[1]) + np.min(data[1])) / 2))
+    print("z center:\t" + str((np.max(data[2]) + np.min(data[2])) / 2))
 
-  # Center data
-  data[0] -= (np.max(data[0]) + np.min(data[0])) / 2
-  data[1] -= (np.max(data[1]) + np.min(data[1])) / 2
-  data[2] -= (np.max(data[2]) + np.min(data[2])) / 2
+    # Center data
+    data[0] -= (np.max(data[0]) + np.min(data[0])) / 2
+    data[1] -= (np.max(data[1]) + np.min(data[1])) / 2
+    data[2] -= (np.max(data[2]) + np.min(data[2])) / 2
 
-  # Normalize data
-  magnitudes = np.sqrt(data[0] ** 2 + data[1] ** 2 + data[2] ** 2)
+    # Normalize data
+    magnitudes = np.sqrt(data[0] ** 2 + data[1] ** 2 + data[2] ** 2)
 
-  # data[0] /= np.mean(magnitudes)
-  # data[1] /= np.mean(magnitudes)
-  # data[2] /= np.mean(magnitudes)
+    # data[0] /= np.mean(magnitudes)
+    # data[1] /= np.mean(magnitudes)
+    # data[2] /= np.mean(magnitudes)
 
-  # # Normalize data + soft iron correction
-  # x_coeffient = np.mean(np.abs(data),1)[0]
-  # y_coefficient = np.mean(np.abs(data),1)[1]
-  # z_coefficient = np.mean(np.abs(data),1)[2]
-  # print(x_coeffient, y_coefficient, z_coefficient)
-  # data[0] /= x_coeffient * 2
-  # data[1] /= y_coefficient * 2
-  # data[2] /= z_coefficient * 2
+    # # Normalize data + soft iron correction
+    # x_coeffient = np.mean(np.abs(data),1)[0]
+    # y_coefficient = np.mean(np.abs(data),1)[1]
+    # z_coefficient = np.mean(np.abs(data),1)[2]
+    # print(x_coeffient, y_coefficient, z_coefficient)
+    # data[0] /= x_coeffient * 2
+    # data[1] /= y_coefficient * 2
+    # data[2] /= z_coefficient * 2
 
-  return data
+    return data
+
 
 def clean_data_no_soft_iron(data):
 
-  data = np.array(data, dtype=np.float64)
+    data = np.array(data, dtype=np.float64)
 
-  # Get the magnitude of the largest data point
+    # Get the magnitude of the largest data point
 
-  print(data.shape)
+    print(data.shape)
 
-  # Get rid of outliers for each data type
-  for i in range(len(data)):
-    data = data[:, data[i] >= (np.mean(data[i]) - 2 * np.std(data[i]))]
-    data = data[:, data[i] <= (np.mean(data[i]) + 2 * np.std(data[i]))]
-  
+    # Get rid of outliers for each data type
+    for i in range(len(data)):
+        data = data[:, data[i] >= (np.mean(data[i]) - 2 * np.std(data[i]))]
+        data = data[:, data[i] <= (np.mean(data[i]) + 2 * np.std(data[i]))]
 
-  # Center data
-  data[0] -= (np.max(data[0]) + np.min(data[0])) / 2
-  data[1] -= (np.max(data[1]) + np.min(data[1])) / 2
-  data[2] -= (np.max(data[2]) + np.min(data[2])) / 2
+    # Center data
+    data[0] -= (np.max(data[0]) + np.min(data[0])) / 2
+    data[1] -= (np.max(data[1]) + np.min(data[1])) / 2
+    data[2] -= (np.max(data[2]) + np.min(data[2])) / 2
 
-  # Normalize data
-  magnitudes = np.sqrt(data[0] ** 2 + data[1] ** 2 + data[2] ** 2)
+    # Normalize data
+    magnitudes = np.sqrt(data[0] ** 2 + data[1] ** 2 + data[2] ** 2)
 
-  # data[0] /= np.mean(magnitudes)
-  # data[1] /= np.mean(magnitudes)
-  # data[2] /= np.mean(magnitudes)
+    # data[0] /= np.mean(magnitudes)
+    # data[1] /= np.mean(magnitudes)
+    # data[2] /= np.mean(magnitudes)
 
-  # Normalize data (w/o soft iron correct)
-  x_coefficient = (np.max(data[0]) - np.min(data[0])) / 2
-  y_coefficient = (np.max(data[1]) - np.min(data[1])) / 2 
-  z_coefficient = (np.max(data[2]) - np.min(data[2])) / 2
-  # print(x_coefficient / 2, y_coefficient/ 2, z_coefficient / 2)
-  data[0] /= x_coefficient 
-  data[1] /= y_coefficient 
-  data[2] /= z_coefficient 
-  return data
+    # Normalize data (w/o soft iron correct)
+    x_coefficient = (np.max(data[0]) - np.min(data[0])) / 2
+    y_coefficient = (np.max(data[1]) - np.min(data[1])) / 2
+    z_coefficient = (np.max(data[2]) - np.min(data[2])) / 2
+    # print(x_coefficient / 2, y_coefficient/ 2, z_coefficient / 2)
+    data[0] /= x_coefficient
+    data[1] /= y_coefficient
+    data[2] /= z_coefficient
+    return data
+
+
 def find_approximation_function(data):
-  pass  
+    pass
 
 
 fig = plt.figure()
-ax = plt.axes(projection='3d')
+ax = plt.axes(projection="3d")
 data = pd.read_csv("./data/data_2022-10-17-01 MAG.csv")
 print(data.head())
 cmap = "Greens"
 # for data in [pd.read_csv("./data/data_2022-09-20-00.csv"), pd.read_csv("./data/data_2022-09-20-01.csv")]:
-xData = data['x0000']
-yData = data['x0001']
-zData = data['x0002']
+xData = data["x0000"]
+yData = data["x0001"]
+zData = data["x0002"]
 
 # Data cleaning
 
@@ -135,12 +138,10 @@ ax.scatter3D(_xData, _yData, _zData, c=_zData, cmap="Reds")
 plt.show()
 
 
-
-
 # here is a point (x,y)
 
 # figure out how far away (x,y) is from the center
 
 # get that magnitude
 
-# 
+#
